@@ -142,7 +142,15 @@ struct cp2102n_serDesc {
 } __attribute__((packed));
 
 struct cp2102n_portSettings {
-  uint8_t bitfields[23];
+  uint8_t resetMode[3];
+  uint8_t resetLowPower[3];
+  uint8_t resetLatch[3];
+  uint8_t suspendMode[3];
+  uint8_t suspendLowPower[3];
+  uint8_t suspendLatch[3];
+  uint8_t driveStrength;
+  uint8_t gpioControl[3];
+  uint8_t flushBuffersConfig;
 } __attribute__((packed));
 
 struct cp2102n_commProp {
