@@ -64,6 +64,9 @@
 #define ITEM_FLUSH 0x370d
 #define ITEM_MODE  0x3711
 
+#define USB_PWR_DSCR_100MA 0x32
+#define USB_PWR_DSCR_500MA 0xfa
+
 /* Config structore for 2102n devices is from
    https://www.silabs.com/documents/public/application-notes/AN978-cp210x-usb-to-uart-api-specification.pdf 
 */
@@ -483,6 +486,46 @@ static bool cp2102n_set_manuf(struct cp2102n_config* cfg, const char *name)
   return true;
 }
 
+static bool cp2102n_set_leds_enabled(struct cp2102n_config* cfg, bool new_leds_enabled)
+{
+  uint8_t led_settings_bitmask = 0b00001100;
+  if (new_leds_enabled)
+  {
+    cfg->portSettings.gpioControl[1] |= led_settings_bitmask;
+  }
+  else{
+    cfg->portSettings.gpioControl[1] &= ~led_settings_bitmask;
+  }
+  return true;
+}
+
+static bool cp2102n_set_pwr_500mA_enabled(struct cp2102n_config* cfg, bool new_pwr_500ma_enabled)
+{ 
+  if (new_pwr_500ma_enabled)
+  {
+    cfg->configDesc.set_ids_maxPower_real = USB_PWR_DSCR_500MA;
+  }
+  else{
+    cfg->configDesc.set_ids_maxPower_real = USB_PWR_DSCR_100MA;
+  }
+  return true;
+}
+
+static bool cp2102n_set_chr_enabled(struct cp2102n_config* cfg, bool new_chr_enabled)
+{
+  uint8_t charging_io_enable_bitmask = 0b00000111;
+
+  if (new_chr_enabled)
+  {
+    cfg->portSettings.gpioControl[2] |= charging_io_enable_bitmask;
+  }
+  else{
+    cfg->portSettings.gpioControl[2] &= ~charging_io_enable_bitmask;
+  }
+  return true;
+}
+
+
 static bool cp210x_reset (libusb_device_handle *cp210x)
 {
   return libusb_reset_device (cp210x) == 0;
@@ -582,15 +625,27 @@ int main (int argc, char *argv[])
   bool set_manuf = false;
   const char* new_manuf = 0;
 
+  bool set_leds_enabled = false;
+  bool new_leds_enabled = false;
+
+  bool set_chr_enabled = false;
+  bool new_chr_enabled = false;
+
+  bool set_pwr_500mA_enabled = false;
+  bool new_pwr_500mA_enabled = false;
+
+  bool enable_experimental_features = false;
+
   int exitcode = 0;
 
   int opt;
-  while ((opt = getopt (argc, argv, "rhld:m:V:P:F:M:N:S:t:C:")) != -1)
+  while ((opt = getopt (argc, argv, "rhlxd:m:V:P:F:M:N:S:t:C:L:I:B:")) != -1)
   {
     switch (opt)
     {
       case 'h': syntax (); return 0;
       case 'l': want_list = true; break;
+      case 'x': enable_experimental_features = true; break;
       case 'd':
       {
         want_bus_dev = true;
@@ -624,7 +679,10 @@ int main (int argc, char *argv[])
       case 'N': set_name   = true; new_name   = optarg; break;
       case 'S': set_serial = true; new_serial = optarg; break;
       case 'C': set_manuf  = true; new_manuf  = optarg; break;
-      case 't': set_serial_int = true; new_serial_int = strtol(optarg, 0, 10); break;
+      case 'L': set_leds_enabled = true; new_leds_enabled = strtol (optarg, 0, 10) ;break;
+      case 'I': set_pwr_500mA_enabled = true; new_pwr_500mA_enabled = strtol (optarg, 0, 10) ;break;
+      case 'B': set_chr_enabled = true; new_chr_enabled = strtol (optarg, 0, 10) ;break;
+      case 't': set_serial_int   = true; new_serial_int = strtol(optarg, 0, 10); break;
       default:
         fprintf (stderr, "error: unknown option '%c'\n", opt);
         return 12;
@@ -694,7 +752,7 @@ int main (int argc, char *argv[])
   libusb_set_auto_detach_kernel_driver (cp210x, 1);
 
   uint8_t model;
-  
+
   print_cp210x_cfg (cp210x);
 
   ret = read_vendor(cp210x, ITEM_MODEL, &model, 1);
@@ -732,6 +790,58 @@ int main (int argc, char *argv[])
       cp2102n_set_manuf(&cp2102n_cfg, new_manuf);
       changed = true;
     }
+
+    if(set_leds_enabled) {
+      cp2102n_set_leds_enabled(&cp2102n_cfg, new_leds_enabled);
+      changed = true;
+    }
+
+    /**
+     * These features below rely on editing a field described in the documentation
+     * as "read-only". However, the "XpressConfigurator" tool from SiLabs seems to
+     * be setting that field anyway. Also, its value corresponds to the standard USB
+     * descriptor named "bMaxPower" - which enables the device to indicate 
+     * its' maximum current draw - in units of "2mA".
+     * 
+     * Preliminary testing suggests that the features below work as predicted.
+     * 
+     * Please note - the order of the called functions below is important, as the
+     * "gpio indicating available power" feature may only be enabled, when the device's
+     * output current is set to 500mA (according to XpressConfigurator's tooltip, near the
+     * "max current" setting window).
+     **/
+
+    if (set_pwr_500mA_enabled) {
+      if(enable_experimental_features){
+        cp2102n_set_pwr_500mA_enabled(&cp2102n_cfg, new_pwr_500mA_enabled);
+      }
+      else{
+        printf("Error - this feature is not documented and therefore is considered "
+              "experimental. To enable it, add the -x flag.\n");
+        goto out;
+      }
+      changed = true;
+    }
+
+    if(set_chr_enabled) {
+      if(enable_experimental_features){
+        if (cp2102n_cfg.configDesc.set_ids_maxPower_real == USB_PWR_DSCR_500MA){
+          cp2102n_set_chr_enabled(&cp2102n_cfg, new_chr_enabled);
+        }
+        else{
+          printf("Error - the charging may not be enabled without setting the maximum"
+          "current draw to 500mA - see argument -I <val>\n");
+          goto out;
+        }
+      } 
+      else{
+        printf("Error - this feature relies on non-documented parameter and therefore "
+              "is considered experimental. To enable it, add the -x flag.\n");
+        goto out;
+      }
+      changed = true;
+    }
+
 
     if (changed) {
       uint16_t cs = fletcher16((uint8_t*) &cp2102n_cfg, sizeof(struct cp2102n_config) - CP2102N_CHECKSUM_LEN);
