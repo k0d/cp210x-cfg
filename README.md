@@ -98,5 +98,5 @@ reasons:
  - The CP2102n IC doesn't consider some "dumb" wall plugs as proper charging ports, and will
  set CHREN pin to low.
  - By default, when plugged into my notebook, the IC set CHREN pin low after a couple seconds of
- inactivity. The walkaround I've found for this problem is to use a custom driver, which prevents
+ inactivity. The walkaround I've found for this problem is to use a custom driver, which would prevent
  the device's entry into suspend mode.
