@@ -20,6 +20,9 @@ Additionally for the CP2102n:
   - Enable TX/RX led outputs
 
 # CAUTION
+
+#### Write-once operation on some chips
+
 This applies to the older CP210x chips (not the CP2102n)
 Programming a CP210x config field is a write-once operation. It's perfectly possible to write bad values.
 The consequences are yours, and yours alone.
@@ -36,13 +39,13 @@ Consider yourself forewarned, and forearmed.
 
 Newer chips like the CP2102n can be reprogrammed indefinitely.
 
-# CAUTION 2
+#### Experimental features
 
-The -I flag modifies an register documented by Silabs as "read-only". While it's been proved to work
+The -I flag modifies an register documented by Silabs as "non user-modifiable". While it's been proved to work
 properly in my case, make sure to ensure its' proper functionality before using it in production.
 
 ## Examples
-####Showing the built-in help message (may differ from below)
+#### Showing the built-in help message (may differ from below)
 ```
 $ ./cp210x-cfg -h
 Syntax:
@@ -85,7 +88,7 @@ SCI/ECI mode: 0000
 
 ```
 
-#### Info for the future developers of this tool
+#### Tips for the future developers of this tool
 
 I did some reverse engineering, using silabs' "Xpress Configurator", and came to conclusion,
 that "Battery Charging" functionality is way too unreaiable to implement here, due to following
@@ -93,4 +96,7 @@ reasons:
  - In order to setup "Battery Charging", "Xpress Configurator" IDE modifies many of the devices'
  registers, many documented as "read-only", or even not marked at all.
  - The CP2102n IC doesn't consider some "dumb" wall plugs as proper charging ports, and will
- set CHREN pin to low. 
+ set CHREN pin to low.
+ - By default, when plugged into my notebook, the IC set CHREN pin low after a couple seconds of
+ inactivity. The walkaround I've found for this problem is to use a custom driver, which prevents
+ the device's entry into suspend mode.
