@@ -41,8 +41,16 @@ Newer chips like the CP2102n can be reprogrammed indefinitely.
 
 #### Experimental features
 
-The -I flag modifies an register documented by Silabs as "non user-modifiable". While it's been proved to work
-properly in my case, make sure to ensure its' proper functionality before using it in production.
+Enable these by using the -x flag.
+
+The -I flag relies on editing a field described in the documentation
+as "non user-modifiable". However, the "XpressConfigurator" tool from SiLabs seems to
+be setting that field anyway. Also, its value corresponds to the standard USB
+descriptor named "bMaxPower" - which enables the device to indicate 
+its' maximum current draw - in units of "2mA".
+
+While it's been proved to work properly in my case, make sure to test this feature 
+thoroughly before using it in production.
 
 ## Examples
 #### Showing the built-in help message (may differ from below)

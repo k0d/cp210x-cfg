@@ -654,7 +654,7 @@ int main (int argc, char *argv[])
   int exitcode = 0;
 
   int opt;
-  while ((opt = getopt (argc, argv, "rhHlxd:m:V:P:F:M:N:S:t:C:L:I:B:")) != -1)
+  while ((opt = getopt (argc, argv, "rhHlxd:m:V:P:F:M:N:S:t:C:L:I:")) != -1)
   {
     switch (opt)
     {
@@ -817,18 +817,14 @@ int main (int argc, char *argv[])
     }
 
     /**
-     * These features below rely on editing a field described in the documentation
-     * as "read-only". However, the "XpressConfigurator" tool from SiLabs seems to
+     * The -I flag relies on editing a field described in the documentation
+     * as "non user-modifiable". However, the "XpressConfigurator" tool from SiLabs seems to
      * be setting that field anyway. Also, its value corresponds to the standard USB
      * descriptor named "bMaxPower" - which enables the device to indicate 
      * its' maximum current draw - in units of "2mA".
      * 
-     * Preliminary testing suggests that the features below work as predicted.
-     * 
-     * Please note - the order of the called functions below is important, as the
-     * "gpio indicating available power" feature may only be enabled, when the device's
-     * output current is set to 500mA (according to XpressConfigurator's tooltip, near the
-     * "max current" setting window).
+     * While it's been proved to work properly in my case, make sure to test this feature 
+     * thoroughly before using it in production.
      **/
 
     if (set_pwr_500mA_enabled) {
