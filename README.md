@@ -12,10 +12,12 @@ Supported fields that can be programmed:
   - Serial string
   - Buffer flush bitmap
   - SCI/ECI gpio/modem mode
+  - Toggle the device's USB power descriptor between the default 100mA and 500mA (experimental feature)
 
 Additionally for the CP2102n:
   - Manufacturer string
   - Toggle between internal and external serial number
+  - Enable TX/RX led outputs
 
 # CAUTION
 This applies to the older CP210x chips (not the CP2102n)
@@ -33,6 +35,11 @@ echo 0000 0000 | sudo tee /sys/bus/usb-serial/drivers/cp210x/new_id
 Consider yourself forewarned, and forearmed.
 
 Newer chips like the CP2102n can be reprogrammed indefinitely.
+
+# CAUTION 2
+
+The -I flag modifies an register documented by Silabs as "read-only". While it's been proved to work
+properly in my case, make sure to ensure its' proper functionality before using it in production.
 
 ## Examples
 ####Showing the built-in help message (may differ from below)
@@ -52,9 +59,13 @@ cp210x-cfg [-h ] |
   -F flush      Program the given buffer flush bitmap (CP2105 only)
   -M mode       Program the given SCI/ECI mode (CP2105 only)
   -N name       Program the given product name string
-  -C manufact.  Program the given manufacturer name (CP2101n only)\n
+  -C manufact.  Program the given manufacturer name (CP2101n only)
   -S serial     Program the given serial string
-  -t 0/1        Toggle between internal and user specified serial (CP2101n only)\n"
+  -t 0/1        Toggle between internal and user specified serial (CP2101n only)
+  -L 0/1        Enable TX/RX led output (CP2101n only)
+  -I 0/1        Toggle between 100mA and 500mA usb power descriptor. This flag works only in conjunction with -x flag.
+  -H            Print a hexdump of the current device's config
+  -x            Enable this tool's experimental features. See README.
 
 Unless the -d option is used, the first found CP210x device is used.
 If no programming options are used, the current values are printed.
@@ -73,3 +84,13 @@ Flush buffers: 33
 SCI/ECI mode: 0000
 
 ```
+
+#### Info for the future developers of this tool
+
+I did some reverse engineering, using silabs' "Xpress Configurator", and came to conclusion,
+that "Battery Charging" functionality is way too unreaiable to implement here, due to following
+reasons:
+ - In order to setup "Battery Charging", "Xpress Configurator" IDE modifies many of the devices'
+ registers, many documented as "read-only", or even not marked at all.
+ - The CP2102n IC doesn't consider some "dumb" wall plugs as proper charging ports, and will
+ set CHREN pin to low. 
