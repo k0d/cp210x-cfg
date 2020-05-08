@@ -232,6 +232,34 @@ typedef struct
 } config_param_t;
 
 
+void print_struct_hexdump (const void * addr, const int len) {
+  int i;
+  unsigned char buff[17];
+  const unsigned char * pc = (const unsigned char *)addr;
+
+  for (i = 0; i < len; i++) {
+    
+    if ((i % 16) == 0) {
+        if (i != 0)
+            printf ("  %s\n", buff);
+        printf ("  %04d ", i);
+    }
+    printf (" %02x", pc[i]);
+
+    if ((pc[i] < 0x20) || (pc[i] > 0x7e))
+        buff[i % 16] = '.';
+    else
+        buff[i % 16] = pc[i];
+    buff[(i % 16) + 1] = '\0';
+  }
+  
+  while ((i % 16) != 0) {
+      printf ("   ");
+      i++;
+  }
+  printf ("  %s\n", buff);
+}
+
 static int read_vendor (libusb_device_handle *cp210x, uint16_t item, uint8_t *buffer, unsigned buflen)
 {
   return libusb_control_transfer (cp210x,
@@ -511,21 +539,6 @@ static bool cp2102n_set_pwr_500mA_enabled(struct cp2102n_config* cfg, bool new_p
   return true;
 }
 
-static bool cp2102n_set_chr_enabled(struct cp2102n_config* cfg, bool new_chr_enabled)
-{
-  uint8_t charging_io_enable_bitmask = 0b00000111;
-
-  if (new_chr_enabled)
-  {
-    cfg->portSettings.gpioControl[2] |= charging_io_enable_bitmask;
-  }
-  else{
-    cfg->portSettings.gpioControl[2] &= ~charging_io_enable_bitmask;
-  }
-  return true;
-}
-
-
 static bool cp210x_reset (libusb_device_handle *cp210x)
 {
   return libusb_reset_device (cp210x) == 0;
@@ -628,24 +641,23 @@ int main (int argc, char *argv[])
   bool set_leds_enabled = false;
   bool new_leds_enabled = false;
 
-  bool set_chr_enabled = false;
-  bool new_chr_enabled = false;
-
   bool set_pwr_500mA_enabled = false;
   bool new_pwr_500mA_enabled = false;
 
   bool enable_experimental_features = false;
+  bool print_config_hexdump = false;
 
   int exitcode = 0;
 
   int opt;
-  while ((opt = getopt (argc, argv, "rhlxd:m:V:P:F:M:N:S:t:C:L:I:B:")) != -1)
+  while ((opt = getopt (argc, argv, "rhHlxd:m:V:P:F:M:N:S:t:C:L:I:B:")) != -1)
   {
     switch (opt)
     {
       case 'h': syntax (); return 0;
       case 'l': want_list = true; break;
       case 'x': enable_experimental_features = true; break;
+      case 'H': print_config_hexdump = true; break;
       case 'd':
       {
         want_bus_dev = true;
@@ -681,7 +693,6 @@ int main (int argc, char *argv[])
       case 'C': set_manuf  = true; new_manuf  = optarg; break;
       case 'L': set_leds_enabled = true; new_leds_enabled = strtol (optarg, 0, 10) ;break;
       case 'I': set_pwr_500mA_enabled = true; new_pwr_500mA_enabled = strtol (optarg, 0, 10) ;break;
-      case 'B': set_chr_enabled = true; new_chr_enabled = strtol (optarg, 0, 10) ;break;
       case 't': set_serial_int   = true; new_serial_int = strtol(optarg, 0, 10); break;
       default:
         fprintf (stderr, "error: unknown option '%c'\n", opt);
@@ -755,6 +766,11 @@ int main (int argc, char *argv[])
 
   print_cp210x_cfg (cp210x);
 
+  if (print_config_hexdump) {
+    printf("Config struct's hexdump:\n");
+    print_struct_hexdump(&cp2102n_cfg,sizeof(cp2102n_cfg));
+  }
+
   ret = read_vendor(cp210x, ITEM_MODEL, &model, 1);
   if (ret < 0)
     usb_err_out("failed to read model", ret, 6);
@@ -816,32 +832,12 @@ int main (int argc, char *argv[])
         cp2102n_set_pwr_500mA_enabled(&cp2102n_cfg, new_pwr_500mA_enabled);
       }
       else{
-        printf("Error - this feature is not documented and therefore is considered "
-              "experimental. To enable it, add the -x flag.\n");
+        printf("Error - manually adjusting output current USB descriptor is not documented "
+              ",therefore it's considered experimental. To enable it, add the -x flag.\n");
         goto out;
       }
       changed = true;
     }
-
-    if(set_chr_enabled) {
-      if(enable_experimental_features){
-        if (cp2102n_cfg.configDesc.set_ids_maxPower_real == USB_PWR_DSCR_500MA){
-          cp2102n_set_chr_enabled(&cp2102n_cfg, new_chr_enabled);
-        }
-        else{
-          printf("Error - the charging may not be enabled without setting the maximum"
-          "current draw to 500mA - see argument -I <val>\n");
-          goto out;
-        }
-      } 
-      else{
-        printf("Error - this feature relies on non-documented parameter and therefore "
-              "is considered experimental. To enable it, add the -x flag.\n");
-        goto out;
-      }
-      changed = true;
-    }
-
 
     if (changed) {
       uint16_t cs = fletcher16((uint8_t*) &cp2102n_cfg, sizeof(struct cp2102n_config) - CP2102N_CHECKSUM_LEN);
