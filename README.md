@@ -96,15 +96,15 @@ SCI/ECI mode: 0000
 
 ```
 
-#### Tips for the future developers of this tool
+## Tips for the future developers of this tool
 
 I did some reverse engineering, using silabs' "Xpress Configurator", and came to conclusion,
 that "Battery Charging" functionality is way too unreaiable to implement here, due to following
 reasons:
  - In order to setup "Battery Charging", "Xpress Configurator" IDE modifies many of the devices'
- registers, many documented as "read-only", or even not marked at all.
+ registers, many documented as "read-only", or not even marked at all.
  - The CP2102n IC doesn't consider some "dumb" wall plugs as proper charging ports, and will
  set CHREN pin to low.
  - By default, when plugged into my notebook, the IC set CHREN pin low after a couple seconds of
  inactivity. The walkaround I've found for this problem is to use a custom driver, which would prevent
- the device's entry into suspend mode.
+ the device's entry into suspend mode. At this point you'd probably want to use silabs' full toolset anyways.
