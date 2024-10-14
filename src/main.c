@@ -516,7 +516,7 @@ static bool cp2102n_set_manuf(struct cp2102n_config* cfg, const char *name)
 
 static bool cp2102n_set_leds_enabled(struct cp2102n_config* cfg, bool new_leds_enabled)
 {
-  uint8_t led_settings_bitmask = 0b00001100;
+  uint8_t led_settings_bitmask = 0b11111111;
   if (new_leds_enabled)
   {
     cfg->portSettings.gpioControl[1] |= led_settings_bitmask;
@@ -578,6 +578,8 @@ static uint16_t fletcher16(uint8_t *dataIn, uint16_t bytes)
 void syntax (void)
 {
   fprintf (stderr,
+"CP210x Configuration Utility:\n"
+"\n"
 "Syntax:\n"
 "cp210x-cfg [-h ] |\n"
 "           [-m vid:pid] [-d bus:dev]\n"
